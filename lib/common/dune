@@ -1,0 +1,18 @@
+(library
+  ;(public_name botocaml.common)
+  (package botocaml)
+  (name common)
+  (libraries 
+    utils
+    lwt
+    curl
+    ezcurl-lwt
+    timedesc
+    mirage-crypto
+    uri
+  )
+  (preprocess (pps 
+    ppx_deriving.show
+    ppx_deriving.eq
+  ))
+)
