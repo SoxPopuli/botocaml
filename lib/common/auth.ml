@@ -39,41 +39,5 @@ let hash_string_hmac ~key s =
   Sha256.hmac_feed hash cstr
 ;;
 
-let hex_of_hash hash =
-    hash
-    |> Hash.SHA256.get
-    |> Cstruct.to_hex_string
-
-let hex_of_hmac hash =
-    hash
-    |> Hash.SHA256.hmac_get
-    |> Cstruct.to_hex_string
-
-let make_canonical_request () =
-
-  ()
-
-(*let build_auth_header*)
-(*  ?(dt : Timedesc.t option)*)
-(*  ~access_key_id*)
-(*  ~region*)
-(*  ~service*)
-(*  ~headers*)
-(*  ~payload*)
-(*  ()*)
-(*  =*)
-(*  let alg = "AWS4-HMAC-SHA256" in*)
-(*  let credential =*)
-(*    let time = dt |> Option.value ~default:(Timedesc.now ()) in*)
-(*    let date =*)
-(*      let pp = Timedesc.pp ~format:"{year}{mon:0X}{day:0X}" () in*)
-(*      Format.asprintf "%a" pp time*)
-(*    in*)
-(*    [ access_key_id; date; region; service; "aws4_request" ] |> String.join ~sep:"/"*)
-(*  in*)
-(*  let signed_headers =*)
-(*    headers |> List.map String.lowercase_ascii |> String.join ~sep:";"*)
-(*  in*)
-(*;;*)
-
-let () = ()
+let hex_of_hash hash = hash |> Hash.SHA256.get |> Cstruct.to_hex_string
+let hex_of_hmac hash = hash |> Hash.SHA256.hmac_get |> Cstruct.to_hex_string

@@ -3,15 +3,21 @@ open Utils
 module Method = struct
   type t =
     | Get
-    | Put
-  [@@deriving eq]
+    | Post of string
+    | Put of string
+  [@@deriving eq, show]
 
-  let show = function
+  let name = function
     | Get -> "GET"
-    | Put -> "PUT"
+    | Post _ -> "POST"
+    | Put _ -> "PUT"
   ;;
 
-  let pp fmt self = Format.fprintf fmt "%s" (show self)
+  let payload = function
+    | Get -> None
+    | Post x -> Some x
+    | Put x -> Some x
+  ;;
 end
 
 type t =
@@ -19,11 +25,64 @@ type t =
   ; url : string
   ; headers : (string * string) list
   ; query_params : (string * string list) list
-  ; body : string
   }
 [@@deriving show, eq]
 
-let canonical_method meth = Method.show meth
+let iso8601_minimal dt =
+  let iso = Timedesc.to_iso8601 dt in
+  String.fold_left
+    (fun acc ch ->
+      match ch with
+      | ':' | '-' -> acc
+      | _ -> acc ^ String.make 1 ch)
+    ""
+    iso
+;;
+
+let ymd dt =
+  let to_string_padded x =
+    let s = Int.to_string x in
+    if String.length s = 1 then "0" ^ s else s
+  in
+  let year = Timedesc.year dt |> Int.to_string in
+  let month = Timedesc.month dt |> to_string_padded in
+  let day = Timedesc.day dt |> to_string_padded in
+  year ^ month ^ day
+;;
+
+let now_utc () = Timedesc.now ~tz_of_date_time:Timedesc.Time_zone.utc ()
+
+let make
+  ?(datetime = now_utc ())
+  ?(meth = Method.Get)
+  ?(headers = [])
+  ?(query_params = [])
+  ~url
+  ()
+  =
+  let open OptionSyntax in
+  let uri = Uri.of_string url in
+  let* host = Uri.host uri in
+  let content =
+    Method.payload meth
+    |> Option.value ~default:""
+    |> Auth.hash_string
+    |> Auth.hex_of_hash
+  in
+  let date = iso8601_minimal datetime in
+  let headers =
+    let base = [ "host", host; "x-amz-content-sha256", content; "x-amz-date", date ] in
+    headers @ base
+  in
+  return { meth; url; headers; query_params }
+;;
+
+let post_json ?(datetime = now_utc ()) ?(headers = []) ?(query_params = []) ~url body =
+  let headers = ("Content-Type", "application/json") :: headers in
+  make ~datetime ~meth:(Method.Post body) ~headers ~query_params ~url ()
+;;
+
+let canonical_method meth = Method.name meth
 let canonical_url url = url |> Uri.of_string |> Uri.path
 
 let canonical_query params =
@@ -36,40 +95,94 @@ let canonical_query params =
   |> String.join ~sep:"&"
 ;;
 
+let canonicalize_headers headers =
+  headers |> List.map_first String.lowercase_ascii |> List.sort_by_keys String.compare
+;;
+
 let canonical_headers headers =
   headers
-  |> List.map_first String.lowercase_ascii
-  |> List.sort_by_keys String.compare
-  |> List.map (fun (k, v) -> Format.sprintf "%s:%s" k (String.trim v))
-  |> String.join ~sep:"\n"
+  |> List.map (fun (k, v) -> k ^ ":" ^ v)
+  |> List.fold_left (fun acc str -> acc ^ str ^ "\n") ""
 ;;
 
-let signed_headers headers =
-  headers |> List.map (fun (k, _) -> String.lowercase_ascii k) |> String.join ~sep:";"
-;;
+let signed_headers headers = headers |> List.map fst |> String.join ~sep:";"
 
-let hashed_payload payload =
-  let open Mirage_crypto.Hash in
-  Auth.hash_string payload |> SHA256.get |> Cstruct.to_hex_string
-;;
-
-let canonical_request self =
-  let headers_to_sign =
-    self.headers
-    |> List.filter (fun (k, _) ->
-      match String.lowercase_ascii k with
-      | "host" | "content-type" -> true
-      | x when String.contains_string ~haystack:x ~needle:"x-amz" -> true
-      | _ -> false)
-  in
+let canonical_request ~canonical_headers ~signed_headers ~meth ~url ~query_params =
+  let body = Method.payload meth |> Option.value ~default:"" in
   let parts =
-    [ canonical_method self.meth
-    ; canonical_url self.url
-    ; canonical_query self.query_params
-    ; canonical_headers self.headers
-    ; signed_headers headers_to_sign
-    ; self.body |> Auth.hash_string |> Auth.hex_of_hash
+    [ canonical_method meth
+    ; canonical_url url
+    ; canonical_query query_params
+    ; canonical_headers
+    ; signed_headers
+    ; body |> Auth.hash_string |> Auth.hex_of_hash
     ]
   in
   String.join ~sep:"\n" parts
+;;
+
+let build_scope ~date_ymd ~region ~service =
+  let region = Region.show region in
+  Format.sprintf "%s/%s/%s/aws4_request" date_ymd region service
+;;
+
+let string_to_sign ~datetime ~scope ~request =
+  let signing_method = "AWS4-HMAC-SHA256" in
+  let timestamp = iso8601_minimal datetime in
+  let request = request |> Auth.hash_string |> Auth.hex_of_hash in
+  [ signing_method; timestamp; scope; request ] |> String.join ~sep:"\n"
+;;
+
+let signature ~date_ymd ~access_secret ~region ~service ~string_to_sign =
+  let open Mirage_crypto.Hash in
+  let date_key =
+    Auth.hash_string_hmac ~key:(Cstruct.string @@ "AWS4" ^ access_secret) date_ymd
+  in
+  let date_region_key =
+    Auth.hash_string_hmac ~key:(SHA256.hmac_get date_key) (Region.show region)
+  in
+  let date_region_service_key =
+    Auth.hash_string_hmac ~key:(SHA256.hmac_get date_region_key) service
+  in
+  let signing_key =
+    Auth.hash_string_hmac ~key:(SHA256.hmac_get date_region_service_key) "aws4_request"
+  in
+  Auth.hash_string_hmac ~key:(SHA256.hmac_get signing_key) string_to_sign
+;;
+
+let build_auth_header
+  ?(datetime = now_utc ())
+  ~access_id
+  ~access_secret
+  ~region
+  ~service
+  ~request
+  ()
+  =
+  let headers = request.headers |> canonicalize_headers in
+  let canonical_headers = canonical_headers headers in
+  let signed_headers = signed_headers headers in
+  let canonical_request =
+    canonical_request
+      ~canonical_headers
+      ~signed_headers
+      ~meth:request.meth
+      ~url:request.url
+      ~query_params:request.query_params
+  in
+  let date_ymd = ymd datetime in
+  let scope = build_scope ~date_ymd ~region ~service in
+  let string_to_sign = string_to_sign ~datetime ~scope ~request:canonical_request in
+  let signature =
+    signature ~date_ymd ~access_secret ~region ~service ~string_to_sign
+    |> Auth.hex_of_hmac
+  in
+  let signing_method = "AWS4-HMAC-SHA256" in
+  let credential = Format.sprintf "%s/%s" access_id scope in
+  Format.sprintf
+    "%s Credential=%s,SignedHeaders=%s,Signature=%s"
+    signing_method
+    credential
+    signed_headers
+    signature
 ;;

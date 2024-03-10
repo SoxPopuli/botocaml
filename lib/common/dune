@@ -10,9 +10,11 @@
     timedesc
     mirage-crypto
     uri
+    yojson
   )
   (preprocess (pps 
     ppx_deriving.show
     ppx_deriving.eq
+    ppx_yojson_conv
   ))
 )

@@ -4,21 +4,6 @@ open Utils
 module AuthTests = struct
   open Common
 
-  let signature () =
-    (*let expected =                                                                    *)
-    (*  ( "Authorization"                                                               *)
-    (*  , "AWS4-HMAC-SHA256 \                                                           *)
-        (*     Credential=AKIAY6SRDBMYEY6VJETV/20240302/eu-west-2/lambda/aws4_request, \    *)
-        (*     SignedHeaders=host;x-amz-date, \                                             *)
-        (*     Signature=ee810415c4cb4bd262f19da69b8de7e6aafe2a416754fcf611c862938e7476bf" )*)
-    (*in                                                                                *)
-    (*let actual =                                                                      *)
-    (*   Common.Auth.build_signature                                                    *)
-    (*in                                                                                *)
-    (*check' (pair string string) ~expected                                             *)
-    ()
-  ;;
-
   let hash () =
     let open Mirage_crypto.Hash in
     let input = "test string" in
@@ -41,54 +26,57 @@ module AuthTests = struct
   ;;
 
   let suite =
-    ( "Auth"
-    , [ test_case "signature" `Quick signature
-      ; test_case "hash" `Quick hash
-      ; test_case "hash_hmac" `Quick hash_hmac
-      ] )
+    "Auth", [ test_case "hash" `Quick hash; test_case "hash_hmac" `Quick hash_hmac ]
   ;;
 end
 
 module RequestTests = struct
   open Common
 
-  let canonical_url () =
-    let url = "http://s3.amazonaws.com/examplebucket/myphoto.jpg?query=value" in
-    let expected = "/examplebucket/myphoto.jpg" in
-    let actual = Request.canonical_url url in
-    check' string ~msg:"" ~expected ~actual
+  let auth_header () =
+    let datetime =
+      Timedesc.make
+        ~tz:Timedesc.Time_zone.utc
+        ~year:2013
+        ~month:05
+        ~day:24
+        ~hour:00
+        ~minute:00
+        ~second:00
+        ()
+      |> Result.get_ok
+    in
+    let example_request =
+      Request.make
+        ~datetime
+        ~meth:Request.Method.Get
+        ~headers:[ "Range", "bytes=0-9" ]
+        ~url:"https://examplebucket.s3.amazonaws.com/test.txt"
+        ()
+      |> Option.get
+    in
+    let access_id = "AKIAIOSFODNN7EXAMPLE" in
+    let access_secret = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" in
+    let auth_header =
+      Request.build_auth_header
+        ~datetime
+        ~access_id
+        ~access_secret
+        ~service:"s3"
+        ~region:UsEast1
+        ~request:example_request
+        ()
+    in
+    let expected_auth_header = 
+      "AWS4-HMAC-SHA256 \
+      Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request,\
+      SignedHeaders=host;range;x-amz-content-sha256;x-amz-date,\
+      Signature=f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41" 
+    in
+    check' string ~msg:"auth header matches" ~actual:auth_header ~expected:expected_auth_header
   ;;
 
-  let canonical_query () =
-    let params =
-      [ "prefix", [ "somePrefix" ]; "marker", [ "someMarker" ]; "max-keys", [ "20" ] ]
-    in
-    let actual = Request.canonical_query params in
-    let expected =
-      Format.sprintf
-        "%s=%s&%s=%s&%s=%s"
-        (Uri.pct_encode "marker")
-        (Uri.pct_encode "someMarker")
-        (Uri.pct_encode "max-keys")
-        (Uri.pct_encode "20")
-        (Uri.pct_encode "prefix")
-        (Uri.pct_encode "somePrefix")
-    in
-    check' string ~msg:"" ~expected ~actual;
-    let actual = [ "acl", [] ] |> Request.canonical_query in
-    let expected = "acl=" in
-    check' string ~msg:"" ~expected ~actual;
-    let actual = [] |> Request.canonical_query in
-    let expected = "" in
-    check' string ~msg:"" ~expected ~actual
-  ;;
-
-  let suite =
-    ( "Request"
-    , [ test_case "canonical_url" `Quick canonical_url
-      ; test_case "canonical_query" `Quick canonical_query
-      ] )
-  ;;
+  let suite = "Request", [ test_case "signature_tests" `Quick auth_header ]
 end
 
 module UtilsTests = struct

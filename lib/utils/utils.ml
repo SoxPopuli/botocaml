@@ -4,6 +4,11 @@ module LwtSyntax = struct
   let return = Lwt.return
 end
 
+module OptionSyntax = struct
+  let ( let* ) = Option.bind
+  let return = Option.some
+end
+
 module List = struct
   include List
 
@@ -81,5 +86,9 @@ module String = struct
       else loop (idx + 1)
     in
     loop 0
+  ;;
+
+  let filter ~f str =
+    String.fold_left (fun acc ch -> if f ch then acc ^ String.make 1 ch else acc) "" str
   ;;
 end
