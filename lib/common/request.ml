@@ -83,7 +83,41 @@ let post_json ?(datetime = now_utc ()) ?(headers = []) ?(query_params = []) ~url
 ;;
 
 let canonical_method meth = Method.name meth
-let canonical_url url = url |> Uri.of_string |> Uri.path
+
+let pct_encode_excluding_slash str =
+  let module CharMap = Hashtbl.Make (Char) in
+  let reserved_chars =
+    [ ' ', "%20"
+    ; '!', "%21"
+    ; '"', "%22"
+    ; '#', "%23"
+    ; '$', "%24"
+    ; '%', "%25"
+    ; '&', "%26"
+    ; '\'', "%27"
+    ; '(', "%28"
+    ; ')', "%29"
+    ; '*', "%2A"
+    ; '+', "%2B"
+    ; ',', "%2C"
+    ; ':', "%3A"
+    ; ';', "%3B"
+    ; '=', "%3D"
+    ; '?', "%3F"
+    ; '@', "%40"
+    ; '[', "%5B"
+    ; ']', "%5D"
+    ]
+    |> List.to_seq
+    |> CharMap.of_seq
+  in
+  StringLabels.fold_left str ~init:"" ~f:(fun acc ch ->
+    match CharMap.find_opt reserved_chars ch with
+    | Some pct -> acc ^ pct
+    | None -> acc ^ String.make 1 ch)
+;;
+
+let canonical_url url = url |> Uri.of_string |> Uri.path |> pct_encode_excluding_slash
 
 let canonical_query params =
   params
@@ -170,9 +204,11 @@ let build_auth_header
       ~url:request.url
       ~query_params:request.query_params
   in
+  let () = print_endline canonical_request in
   let date_ymd = ymd datetime in
   let scope = build_scope ~date_ymd ~region ~service in
   let string_to_sign = string_to_sign ~datetime ~scope ~request:canonical_request in
+  let () = print_endline string_to_sign in
   let signature =
     signature ~date_ymd ~access_secret ~region ~service ~string_to_sign
     |> Auth.hex_of_hmac
