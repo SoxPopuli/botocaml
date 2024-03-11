@@ -191,9 +191,7 @@ module RequestTests = struct
     let access_secret = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" in
     let expected_auth_header =
       "AWS4-HMAC-SHA256 \
-      Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request,\
-      SignedHeaders=host;x-amz-content-sha256;x-amz-date,\
-      Signature=34b48302e7b5fa45bde8084f4b7868a86f0a534bc59db6670ed5711ef69dc6f7"
+       Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request,SignedHeaders=host;x-amz-content-sha256;x-amz-date,Signature=34b48302e7b5fa45bde8084f4b7868a86f0a534bc59db6670ed5711ef69dc6f7"
     in
     let auth_header =
       Request.build_auth_header

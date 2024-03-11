@@ -204,11 +204,9 @@ let build_auth_header
       ~url:request.url
       ~query_params:request.query_params
   in
-  let () = print_endline canonical_request in
   let date_ymd = ymd datetime in
   let scope = build_scope ~date_ymd ~region ~service in
   let string_to_sign = string_to_sign ~datetime ~scope ~request:canonical_request in
-  let () = print_endline string_to_sign in
   let signature =
     signature ~date_ymd ~access_secret ~region ~service ~string_to_sign
     |> Auth.hex_of_hmac
