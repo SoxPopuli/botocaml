@@ -65,6 +65,8 @@ module String = struct
   ;;
 
   let compare_rev a b = compare b a
+  let sort = List.sort compare
+  let sort_array = Array.sort compare
   let get_opt s i = if i >= String.length s then None else Some (String.get s i)
 
   let contains_string ~(needle : string) ~(haystack : string) =
