@@ -125,7 +125,7 @@ let canonical_query params =
   |> List.map (fun (k, v) ->
     let key = Uri.pct_encode k in
     let values = v |> List.map Uri.pct_encode |> String.join ~sep:"," in
-    Format.sprintf "%s=%s" key values)
+    key ^ "=" ^ values)
   |> String.join ~sep:"&"
 ;;
 
