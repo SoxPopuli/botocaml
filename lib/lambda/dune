@@ -1,7 +1,6 @@
 (library
-  ;(public_name botocaml.common)
   (package botocaml)
-  (name common)
+  (name lambda)
   (libraries 
     utils
     lwt
@@ -11,12 +10,12 @@
     mirage-crypto
     uri
     yojson
+    ;;
+    common
   )
   (preprocess (pps 
     ppx_deriving.show
     ppx_deriving.eq
-    ppx_deriving.make
     ppx_yojson_conv
-    ppx_fields_conv
   ))
 )

@@ -1,6 +1,6 @@
 (library
   (public_name botocaml)
   (name botocaml)
-  (libraries common)
+  (libraries common lambda)
 )
 

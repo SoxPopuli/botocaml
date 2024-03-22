@@ -1,3 +1,2 @@
 module Common = Common
-
-let botocaml = 1
+module Lambda = Lambda

@@ -68,6 +68,43 @@ type t =
   | Other of string (** Custom Region *)
 [@@deriving eq]
 
+let of_string = function
+  | "af-south-1" -> AfSouth1
+  | "ap-east-1" -> ApEast1
+  | "ap-northeast-1" -> ApNortheast1
+  | "ap-northeast-2" -> ApNortheast2
+  | "ap-northeast-3" -> ApNortheast3
+  | "ap-south-1" -> ApSouth1
+  | "ap-south-2" -> ApSouth2
+  | "ap-southeast-1" -> ApSoutheast1
+  | "ap-southeast-2" -> ApSoutheast2
+  | "ap-southeast-3" -> ApSoutheast3
+  | "ap-southeast-4" -> ApSoutheast4
+  | "ca-central-1" -> CaCentral1
+  | "ca-west-1" -> CaWest1
+  | "cn-north-1" -> CnNorth1
+  | "cn-northwest-1" -> CnNorthwest1
+  | "eu-central-1" -> EuCentral1
+  | "eu-central-2" -> EuCentral2
+  | "eu-north-1" -> EuNorth1
+  | "eu-south-1" -> EuSouth1
+  | "eu-south-2" -> EuSouth2
+  | "eu-west-1" -> EuWest1
+  | "eu-west-2" -> EuWest2
+  | "eu-west-3" -> EuWest3
+  | "il-central-1" -> IlCentral1
+  | "me-central-1" -> MeCentral1
+  | "me-south-1" -> MeSouth1
+  | "sa-east-1" -> SaEast1
+  | "us-east-1" -> UsEast1
+  | "us-east-2" -> UsEast2
+  | "us-gov-east-1" -> UsGovEast1
+  | "us-gov-west-1" -> UsGovWest1
+  | "us-west-1" -> UsWest1
+  | "us-west-2" -> UsWest2
+  | x -> Other x
+;;
+
 let show = function
   | AfSouth1 -> "af-south-1"
   | ApEast1 -> "ap-east-1"

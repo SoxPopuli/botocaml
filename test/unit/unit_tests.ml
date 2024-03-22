@@ -270,7 +270,57 @@ module UtilsTests = struct
   ;;
 end
 
+module ParserTests = struct
+  open Common
+
+  let unwrap_string_error = function
+    | Ok x -> x
+    | Error e -> failwith e
+  ;;
+
+  let section =
+    let open Credentials.Parser in
+    (module Section : Alcotest.TESTABLE with type t = Section.t)
+  ;;
+
+  let file () =
+    let input =
+      {|[default]
+        aws_access_key_id = test_id
+        aws_secret_access_key = test_key
+
+        [sandbox]
+        role_arn = sandbox_arn
+        source_profile = default
+        region = eu-west-2|}
+    in
+    let result =
+      Angstrom.parse_string ~consume:All Credentials.Parser.run input
+      |> unwrap_string_error
+    in
+    let expected =
+      let open Credentials.Parser.Section in
+      [ { header = "default"
+        ; values = [ "aws_access_key_id", "test_id"; "aws_secret_access_key", "test_key" ]
+        }
+      ; { header = "sandbox"
+        ; values =
+            [ "role_arn", "sandbox_arn"
+            ; "source_profile", "default"
+            ; "region", "eu-west-2"
+            ]
+        }
+      ]
+    in
+    check' (list section) ~msg:"" ~expected ~actual:result
+  ;;
+
+  let suite = "Parser", [ test_case "file" `Quick file ]
+end
+
 let () =
   let open Alcotest in
-  run "UnitTests" [ AuthTests.suite; RequestTests.suite; UtilsTests.suite ]
+  run
+    "UnitTests"
+    [ AuthTests.suite; RequestTests.suite; UtilsTests.suite; ParserTests.suite ]
 ;;

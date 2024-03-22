@@ -6,8 +6,30 @@ end
 
 module OptionSyntax = struct
   let ( let* ) = Option.bind
+
+  let ( let& ) r fn =
+    match r with
+    | Ok x -> fn x
+    | Error _ -> None
+  ;;
+
   let return = Option.some
 end
+
+module ResultSyntax = struct
+  let ( let* ) = Result.bind
+
+  let ( let& ) (o, e) fn =
+    match o with
+    | Some x -> fn x
+    | None -> Error e
+  ;;
+
+  let return = Result.ok
+end
+
+let ( ||> ) (a, b) fn = fn a b [@@inline always]
+let ( |||> ) (a, b, c) fn = fn a b c [@@inline always]
 
 module List = struct
   include List
@@ -91,6 +113,10 @@ module String = struct
   ;;
 
   let filter ~f str =
-    String.fold_left (fun acc ch -> if f ch then acc ^ String.make 1 ch else acc) "" str
+    StringLabels.fold_left str ~init:"" ~f:(fun acc ch -> if f ch then acc ^ String.make 1 ch else acc)
+  ;;
+
+  let from_chars chars =
+    ListLabels.fold_left chars ~init:"" ~f:(fun acc c -> acc ^ String.make 1 c)
   ;;
 end
