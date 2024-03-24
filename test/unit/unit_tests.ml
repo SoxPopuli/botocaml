@@ -279,7 +279,7 @@ module ParserTests = struct
   ;;
 
   let section =
-    let open Credentials.Parser in
+    let open Credentials.File.Parser in
     (module Section : Alcotest.TESTABLE with type t = Section.t)
   ;;
 
@@ -295,11 +295,11 @@ module ParserTests = struct
         region = eu-west-2|}
     in
     let result =
-      Angstrom.parse_string ~consume:All Credentials.Parser.run input
+      Angstrom.parse_string ~consume:All Credentials.File.Parser.run input
       |> unwrap_string_error
     in
     let expected =
-      let open Credentials.Parser.Section in
+      let open Credentials.File.Parser.Section in
       [ { header = "default"
         ; values = [ "aws_access_key_id", "test_id"; "aws_secret_access_key", "test_key" ]
         }
@@ -315,7 +315,48 @@ module ParserTests = struct
     check' (list section) ~msg:"" ~expected ~actual:result
   ;;
 
-  let suite = "Parser", [ test_case "file" `Quick file ]
+  let record_test () =
+    let input =
+      {|[default]
+        aws_access_key_id = test_id
+        aws_secret_access_key = test_key
+
+        [sandbox]
+        role_arn = sandbox_arn
+        source_profile = default
+        region = eu-west-2
+
+        [us]
+        source_profile = default
+        region = us-east-1|}
+    in
+    let result =
+      Credentials.File.from_string input |> unwrap_string_error |> Types.StringMap.to_list
+    in
+    let expected =
+      [ "default", Credentials.make ~access_id:"test_id" ~access_secret:"test_key" ()
+      ; ( "sandbox"
+        , Credentials.make
+            ~access_id:"test_id"
+            ~access_secret:"test_key"
+            ~region:EuWest2
+            ~role_arn:"sandbox_arn"
+            () )
+      ; ( "us"
+        , Credentials.make
+            ~access_id:"test_id"
+            ~access_secret:"test_key"
+            ~region:UsEast1
+            () )
+      ]
+    in
+    let test = (module Credentials) |> pair string |> list in
+    check' test ~msg:"" ~expected ~actual:result
+  ;;
+
+  let suite =
+    "Parser", [ test_case "file" `Quick file; test_case "record" `Quick record_test ]
+  ;;
 end
 
 let () =

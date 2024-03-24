@@ -68,7 +68,7 @@ type t =
   | Other of string (** Custom Region *)
 [@@deriving eq]
 
-let of_string = function
+let from_string = function
   | "af-south-1" -> AfSouth1
   | "ap-east-1" -> ApEast1
   | "ap-northeast-1" -> ApNortheast1
