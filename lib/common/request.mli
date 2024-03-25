@@ -1,14 +1,13 @@
 module Method : sig
   type t =
     | Get
-    | Post of string
-    | Put of string
+    | Post
+    | Put
 
   val equal : t -> t -> bool
   val pp : Format.formatter -> t -> unit
   val show : t -> string
   val name : t -> string
-  val payload : t -> string option
 end
 
 type t
@@ -22,7 +21,8 @@ val make
   -> ?meth:Method.t
   -> ?headers:(string * string) list
   -> ?query_params:(string * string list) list
-  -> url:string
+  -> ?body:string
+  -> uri:Uri.t
   -> unit
   -> t option
 
@@ -30,8 +30,9 @@ val post_json
   :  ?datetime:Timedesc.t
   -> ?headers:(string * string) list
   -> ?query_params:(string * string list) list
-  -> url:string
-  -> string
+  -> ?body:string
+  -> uri:Uri.t
+  -> unit
   -> t option
 
 val build_auth_header
@@ -40,6 +41,16 @@ val build_auth_header
   -> access_secret:string
   -> region:Region.t
   -> service:string
-  -> request:t
-  -> unit
+  -> t
   -> string
+
+val with_auth_header
+  :  ?datetime:Timedesc.t
+  -> access_id:string
+  -> access_secret:string
+  -> region:Region.t
+  -> service:string
+  -> t
+  -> t
+
+val perform : t -> (Ezcurl_core.response, Curl.curlCode * string) result Lwt.t

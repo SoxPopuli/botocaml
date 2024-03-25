@@ -1,6 +1,19 @@
 module LwtSyntax = struct
-  let ( let& ) = Lwt.bind
+  let ( let* ) = Lwt.bind
   let ( let+ ) = Lwt.map
+
+  let ( let& ) lr fn =
+    let* res = lr in
+    match res with
+    | Ok x -> fn x
+    | Error e -> Lwt.return (Error e)
+  ;;
+
+  let (let$) (r: ('a, 'b) result) fn =
+    match r with
+    | Ok x -> fn x
+    | Error e -> Lwt.return (Error e)
+
   let return = Lwt.return
 end
 
@@ -113,10 +126,41 @@ module String = struct
   ;;
 
   let filter ~f str =
-    StringLabels.fold_left str ~init:"" ~f:(fun acc ch -> if f ch then acc ^ String.make 1 ch else acc)
+    StringLabels.fold_left str ~init:"" ~f:(fun acc ch ->
+      if f ch then acc ^ String.make 1 ch else acc)
   ;;
 
   let from_chars chars =
     ListLabels.fold_left chars ~init:"" ~f:(fun acc c -> acc ^ String.make 1 c)
   ;;
 end
+
+module Option = struct
+  include Option
+
+  (** apply function if option is none *)
+  let map_none ~f = function
+    | Some x -> Some x
+    | None -> Some (f ())
+  ;;
+
+  (** apply function if option is none *)
+  let bind_none ~f = function
+    | Some x -> Some x
+    | None -> f ()
+  ;;
+
+  let bind ~f = function
+    | Some x -> f x
+    | None -> None
+  ;;
+
+  let expect ~msg = function
+    | Some x -> x
+    | None -> failwith msg
+  ;;
+end
+
+let tee fn x =
+  fn x;
+  x

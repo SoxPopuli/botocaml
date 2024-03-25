@@ -1,42 +1,35 @@
 open Utils
+module Ezcurl = Ezcurl_lwt
 
 module Method = struct
   type t =
     | Get
-    | Post of string
-    | Put of string
+    | Post
+    | Put
   [@@deriving eq, show]
 
   let name = function
     | Get -> "GET"
-    | Post _ -> "POST"
-    | Put _ -> "PUT"
-  ;;
-
-  let payload = function
-    | Get -> None
-    | Post x -> Some x
-    | Put x -> Some x
+    | Post -> "POST"
+    | Put -> "PUT"
   ;;
 end
 
 type t =
   { meth : Method.t
-  ; url : string
+  ; uri : Uri.t
   ; headers : (string * string) list
   ; query_params : (string * string list) list
+  ; body : string option
   }
 [@@deriving show, eq]
 
 let iso8601_minimal dt =
-  let iso = Timedesc.to_iso8601 dt in
-  String.fold_left
-    (fun acc ch ->
-      match ch with
-      | ':' | '-' -> acc
-      | _ -> acc ^ String.make 1 ch)
-    ""
-    iso
+  let iso = Timedesc.to_iso8601 ~frac_s:0 dt in
+  StringLabels.fold_left iso ~init:"" ~f:(fun acc ch ->
+    match ch with
+    | ':' | '-' -> acc
+    | _ -> acc ^ String.make 1 ch)
 ;;
 
 let ymd dt =
@@ -51,37 +44,6 @@ let ymd dt =
 ;;
 
 let now_utc () = Timedesc.now ~tz_of_date_time:Timedesc.Time_zone.utc ()
-
-let make
-  ?(datetime = now_utc ())
-  ?(meth = Method.Get)
-  ?(headers = [])
-  ?(query_params = [])
-  ~url
-  ()
-  =
-  let open OptionSyntax in
-  let uri = Uri.of_string url in
-  let* host = Uri.host uri in
-  let content =
-    Method.payload meth
-    |> Option.value ~default:""
-    |> Auth.hash_string
-    |> Auth.hex_of_hash
-  in
-  let date = iso8601_minimal datetime in
-  let headers =
-    let base = [ "host", host; "x-amz-content-sha256", content; "x-amz-date", date ] in
-    headers @ base
-  in
-  return { meth; url; headers; query_params }
-;;
-
-let post_json ?(datetime = now_utc ()) ?(headers = []) ?(query_params = []) ~url body =
-  let headers = ("Content-Type", "application/json") :: headers in
-  make ~datetime ~meth:(Method.Post body) ~headers ~query_params ~url ()
-;;
-
 let canonical_method meth = Method.name meth
 
 let pct_encode_excluding_slash str =
@@ -117,7 +79,7 @@ let pct_encode_excluding_slash str =
     | None -> acc ^ String.make 1 ch)
 ;;
 
-let canonical_url url = url |> Uri.of_string |> Uri.path |> pct_encode_excluding_slash
+let canonical_url uri = uri |> Uri.path |> pct_encode_excluding_slash
 
 let canonical_query params =
   params
@@ -141,11 +103,11 @@ let canonical_headers headers =
 
 let signed_headers headers = headers |> List.map fst |> String.join ~sep:";"
 
-let canonical_request ~canonical_headers ~signed_headers ~meth ~url ~query_params =
-  let body = Method.payload meth |> Option.value ~default:"" in
+let canonical_request ~canonical_headers ~signed_headers ~meth ~uri ~query_params ~body =
+  let body = body |> Option.value ~default:"" in
   let parts =
     [ canonical_method meth
-    ; canonical_url url
+    ; canonical_url uri
     ; canonical_query query_params
     ; canonical_headers
     ; signed_headers
@@ -190,8 +152,7 @@ let build_auth_header
   ~access_secret
   ~region
   ~service
-  ~request
-  ()
+  request
   =
   let headers = request.headers |> canonicalize_headers in
   let canonical_headers = canonical_headers headers in
@@ -201,8 +162,9 @@ let build_auth_header
       ~canonical_headers
       ~signed_headers
       ~meth:request.meth
-      ~url:request.url
+      ~uri:request.uri
       ~query_params:request.query_params
+      ~body:request.body
   in
   let date_ymd = ymd datetime in
   let scope = build_scope ~date_ymd ~region ~service in
@@ -219,4 +181,57 @@ let build_auth_header
     credential
     signed_headers
     signature
+;;
+
+let with_auth_header ?(datetime = now_utc ()) ~access_id ~access_secret ~region ~service (req : t) =
+  let auth_header =
+    ( "authorization"
+    , build_auth_header ~datetime ~access_id ~access_secret ~region ~service req )
+  in
+  { req with headers = (auth_header :: req.headers) }
+
+let perform (req : t) =
+  let meth =
+    match req.meth with
+    | Get -> Ezcurl.GET
+    | Post -> Ezcurl.POST []
+    | Put -> Ezcurl.PUT
+  in
+  let content = req.body |> Option.map (fun x -> `String x) in
+  let url = Uri.with_query req.uri req.query_params in
+
+  Ezcurl.http
+    ?content
+    ~meth
+    ~headers:req.headers
+    ~url:(Uri.to_string url)
+    ()
+;;
+
+let make
+  ?(datetime = now_utc ())
+  ?(meth = Method.Get)
+  ?(headers = [])
+  ?(query_params = [])
+  ?body
+  ~uri
+  ()
+  =
+  let open OptionSyntax in
+  let* host = Uri.host uri in
+  let content =
+    body |> Option.value ~default:"" |> Auth.hash_string |> Auth.hex_of_hash
+  in
+  let date = iso8601_minimal datetime in
+  let headers =
+    let base = [ "host", host; "x-amz-content-sha256", content; "x-amz-date", date ] in
+    headers @ base
+  in
+  let req = { meth; uri; headers; query_params; body } in
+  return req
+;;
+
+let post_json ?(datetime = now_utc ()) ?(headers = []) ?(query_params = []) ?body ~uri () =
+  let headers = ("Content-Type", "application/json") :: headers in
+  make ~datetime ~meth:Method.Post ~headers ~query_params ~uri ?body ()
 ;;

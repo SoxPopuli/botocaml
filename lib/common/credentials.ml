@@ -6,7 +6,7 @@ type t =
   ; region : Region.t option
   ; role_arn : string option
   }
-[@@deriving fields ~getters ~names, make, show, eq]
+[@@deriving fields ~getters, make, show, eq]
 
 let default = { access_id = ""; access_secret = ""; region = None; role_arn = None }
 
@@ -86,11 +86,15 @@ module File = struct
     let run = whitespace *> sep_by whitespace section <* whitespace
   end
 
-  let rec from_values map (values : (string * string) list) =
+  let rec from_values map (values : (string * string) list) : t option =
+    let open Utils.OptionSyntax in
     let try_from_cache ~cache ~map x =
       match StringMap.find_opt x !cache with
-      | Some hit -> `Hit hit
-      | None -> `Miss (StringMap.find x map)
+      | Some hit -> `Cached hit
+      | None ->
+        (match StringMap.find_opt x map with
+         | Some x -> `Fallback x
+         | None -> `NotFound)
     in
     let cache = ref StringMap.empty in
     let rec loop r remaining =
@@ -98,21 +102,24 @@ module File = struct
       | hd :: tail ->
         let new_rec =
           match hd with
-          | "aws_access_key_id", x -> { r with access_id = x }
-          | "aws_secret_access_key", x -> { r with access_secret = x }
-          | "region", x -> { r with region = Some (Region.from_string x) }
-          | "role_arn", x -> { r with role_arn = Some x }
+          | "aws_access_key_id", x -> Some { r with access_id = x }
+          | "aws_secret_access_key", x -> Some { r with access_secret = x }
+          | "region", x -> Some { r with region = Some (Region.from_string x) }
+          | "role_arn", x -> Some { r with role_arn = Some x }
           | "source_profile", x ->
             (match try_from_cache ~cache ~map x with
-             | `Hit hit -> merge ~src:hit ~dst:r
-             | `Miss miss ->
-               let result = merge ~src:(from_values map miss) ~dst:r in
+             | `Cached cached -> Some (merge ~src:cached ~dst:r)
+             | `Fallback found ->
+               let* source = from_values map found in
+               let result = merge ~src:source ~dst:r in
                cache := StringMap.add x result !cache;
-               result)
-          | _ -> r
+               Some result
+             | `NotFound -> None)
+          | _ -> Some r (* skip keys that we don't recognize *)
         in
+        let* new_rec = new_rec in
         loop new_rec tail
-      | [] -> r
+      | [] -> Some r
     in
     loop default values
   ;;
@@ -127,7 +134,7 @@ module File = struct
         map |> StringMap.add x.header x.values)
     in
     let sections =
-      sections |> StringMap.map (fun values -> from_values sections values)
+      sections |> StringMap.filter_map (fun _ values -> from_values sections values)
     in
     return sections
   ;;
@@ -135,3 +142,24 @@ module File = struct
   let from_channel channel = channel |> In_channel.input_all |> from_string
   let from_path path = path |> In_channel.open_text |> In_channel.input_all |> from_string
 end
+
+(** Try to load credentials in the following order
+
+    1. Environment variables
+    2. Credentials file (e.g. ~/.aws/credentials) *)
+let try_load () =
+  let open Utils.OptionSyntax in
+  let try_from_path path =
+    let& values = File.from_path path in
+    (* return default profile, or first profile if exists *)
+    match StringMap.find_opt "default" values with
+    | Some x -> Some x
+    | None ->
+      let seq = StringMap.to_seq values in
+      (match seq () with
+       | Seq.Cons (hd, _) -> Some (snd hd)
+       | Seq.Nil -> None)
+  in
+  let options = [ Environment.load; (fun () -> try_from_path "~/.aws/credentials") ] in
+  ListLabels.find_map options ~f:(fun fn -> fn ())
+;;

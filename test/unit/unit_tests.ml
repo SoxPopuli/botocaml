@@ -51,7 +51,7 @@ module RequestTests = struct
         ~datetime
         ~meth:Request.Method.Get
         ~headers:[ "Range", "bytes=0-9" ]
-        ~url:"https://examplebucket.s3.amazonaws.com/test.txt"
+        ~uri:(Uri.of_string "https://examplebucket.s3.amazonaws.com/test.txt")
         ()
       |> Option.get
     in
@@ -64,8 +64,7 @@ module RequestTests = struct
         ~access_secret
         ~service:"s3"
         ~region:UsEast1
-        ~request:example_request
-        ()
+        example_request
     in
     let expected_auth_header =
       "AWS4-HMAC-SHA256 \
@@ -94,12 +93,13 @@ module RequestTests = struct
     let example_request =
       Request.make
         ~datetime
-        ~meth:(Request.Method.Put "Welcome to Amazon S3.")
+        ~meth:Request.Method.Put
+        ~body:"Welcome to Amazon S3."
         ~headers:
           [ "Date", "Fri, 24 May 2013 00:00:00 GMT"
           ; "x-amz-storage-class", "REDUCED_REDUNDANCY"
           ]
-        ~url:"https://examplebucket.s3.amazonaws.com/test$file.text"
+        ~uri:(Uri.of_string "https://examplebucket.s3.amazonaws.com/test$file.text")
         ()
       |> Option.get
     in
@@ -112,12 +112,11 @@ module RequestTests = struct
     let auth_header =
       Request.build_auth_header
         ~datetime
-        ~request:example_request
         ~access_id
         ~access_secret
         ~region:UsEast1
         ~service:"s3"
-        ()
+        example_request
     in
     check' string ~msg:"" ~expected:expected_auth_header ~actual:auth_header
   ;;
@@ -141,7 +140,7 @@ module RequestTests = struct
         ~meth:Request.Method.Get
         ~headers:[]
         ~query_params:[ "lifecycle", [] ]
-        ~url:"https://examplebucket.s3.amazonaws.com/"
+        ~uri:(Uri.of_string "https://examplebucket.s3.amazonaws.com/")
         ()
       |> Option.get
     in
@@ -154,12 +153,11 @@ module RequestTests = struct
     let auth_header =
       Request.build_auth_header
         ~datetime
-        ~request:example_request
         ~access_id
         ~access_secret
         ~region:UsEast1
         ~service:"s3"
-        ()
+        example_request
     in
     check' string ~msg:"" ~expected:expected_auth_header ~actual:auth_header
   ;;
@@ -183,7 +181,7 @@ module RequestTests = struct
         ~meth:Request.Method.Get
         ~headers:[]
         ~query_params:[ "max-keys", [ "2" ]; "prefix", [ "J" ] ]
-        ~url:"https://examplebucket.s3.amazonaws.com/"
+        ~uri:(Uri.of_string "https://examplebucket.s3.amazonaws.com/")
         ()
       |> Option.get
     in
@@ -196,12 +194,11 @@ module RequestTests = struct
     let auth_header =
       Request.build_auth_header
         ~datetime
-        ~request:example_request
         ~access_id
         ~access_secret
         ~region:UsEast1
         ~service:"s3"
-        ()
+        example_request
     in
     check' string ~msg:"" ~expected:expected_auth_header ~actual:auth_header
   ;;
@@ -328,7 +325,9 @@ module ParserTests = struct
 
         [us]
         source_profile = default
-        region = us-east-1|}
+        region = us-east-1
+        [error]
+        source_profile = profile_that_doesnt_exist|}
     in
     let result =
       Credentials.File.from_string input |> unwrap_string_error |> Types.StringMap.to_list
