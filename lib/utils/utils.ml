@@ -9,10 +9,11 @@ module LwtSyntax = struct
     | Error e -> Lwt.return (Error e)
   ;;
 
-  let (let$) (r: ('a, 'b) result) fn =
+  let ( let$ ) (r : ('a, 'b) result) fn =
     match r with
     | Ok x -> fn x
     | Error e -> Lwt.return (Error e)
+  ;;
 
   let return = Lwt.return
 end
@@ -164,3 +165,4 @@ end
 let tee fn x =
   fn x;
   x
+;;

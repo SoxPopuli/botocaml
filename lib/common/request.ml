@@ -183,12 +183,20 @@ let build_auth_header
     signature
 ;;
 
-let with_auth_header ?(datetime = now_utc ()) ~access_id ~access_secret ~region ~service (req : t) =
+let with_auth_header
+  ?(datetime = now_utc ())
+  ~access_id
+  ~access_secret
+  ~region
+  ~service
+  (req : t)
+  =
   let auth_header =
     ( "authorization"
     , build_auth_header ~datetime ~access_id ~access_secret ~region ~service req )
   in
-  { req with headers = (auth_header :: req.headers) }
+  { req with headers = auth_header :: req.headers }
+;;
 
 let perform (req : t) =
   let meth =
@@ -198,14 +206,8 @@ let perform (req : t) =
     | Put -> Ezcurl.PUT
   in
   let content = req.body |> Option.map (fun x -> `String x) in
-  let url = Uri.with_query req.uri req.query_params in
-
-  Ezcurl.http
-    ?content
-    ~meth
-    ~headers:req.headers
-    ~url:(Uri.to_string url)
-    ()
+  let url = Uri.with_query req.uri req.query_params |> Uri.to_string in
+  Ezcurl.http ?content ~meth ~headers:req.headers ~url ()
 ;;
 
 let make

@@ -25,7 +25,6 @@
 open! Utils
 open Mirage_crypto
 
-
 let hash_string s =
   let module Sha256 = Hash.SHA256 in
   let cstr = Cstruct.string s in
