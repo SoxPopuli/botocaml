@@ -10,6 +10,7 @@ end
 module type Provider = sig
   val invoke
     :  ?payload:string
+    -> ?region:Region.t
     -> func_name:string
     -> unit
     -> (Ezcurl_core.response, Error.t) result Lwt.t
@@ -24,7 +25,7 @@ module Make (C : Config) : Provider = struct
     | None -> Format.sprintf "%s.%s.amazonaws.com" service region
   ;;
 
-  let region =
+  let base_region =
     C.credentials
     |> Option.bind ~f:Credentials.region
     |> Option.bind_none ~f:(fun () ->
@@ -38,10 +39,14 @@ module Make (C : Config) : Provider = struct
     C.credentials |> Option.to_result ~none:(Error.RequestError "No credentials found")
   ;;
 
-  let invoke ?payload ~func_name () =
+  let invoke ?payload ?region ~func_name () =
     let open LwtSyntax in
     let$ creds = credentials in
-    let$ region = region in
+    let$ region =
+      match region with
+      | Some r -> Ok r
+      | None -> base_region
+    in
     let path =
       Format.sprintf "/2015-03-31/functions/%s/invocations" (Uri.pct_encode func_name)
     in
@@ -76,7 +81,7 @@ let from_credentials creds =
   (module M : Provider)
 ;;
 
-module Default = Make(struct 
-  let service_url = None
-  let credentials = Credentials.try_load ()
-end)
+module Default = Make (struct
+    let service_url = None
+    let credentials = Credentials.try_load ()
+  end)
