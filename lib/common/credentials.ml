@@ -140,7 +140,13 @@ module File = struct
   ;;
 
   let from_channel channel = channel |> In_channel.input_all |> from_string
-  let from_path path = path |> In_channel.open_text |> In_channel.input_all |> from_string
+
+  let from_path path =
+    try
+      path |> In_channel.open_text |> In_channel.input_all |> from_string
+    with
+    | Sys_error msg -> Error msg
+  ;;
 end
 
 (** Try to load credentials in the following order
