@@ -147,12 +147,12 @@ end
 
     1. Environment variables
     2. Credentials file (e.g. ~/.aws/credentials) *)
-let try_load () =
+let try_load ?(profile = "default") () =
   let open Utils.OptionSyntax in
   let try_from_path path =
     let& values = File.from_path path in
     (* return default profile, or first profile if exists *)
-    match StringMap.find_opt "default" values with
+    match StringMap.find_opt profile values with
     | Some x -> Some x
     | None ->
       let seq = StringMap.to_seq values in
