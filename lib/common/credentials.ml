@@ -166,6 +166,10 @@ let try_load ?(profile = "default") () =
        | Seq.Cons (hd, _) -> Some (snd hd)
        | Seq.Nil -> None)
   in
-  let options = [ Environment.load; (fun () -> try_from_path "~/.aws/credentials") ] in
+  let try_load_credentials_file () =
+    let* home = Sys.getenv_opt "HOME" in
+    try_from_path (Format.sprintf "%s/.aws/credentials" home)
+  in
+  let options = [ Environment.load; try_load_credentials_file ] in
   ListLabels.find_map options ~f:(fun fn -> fn ())
 ;;
