@@ -1,0 +1,6 @@
+(test
+ (package botocaml)
+ (name integration_tests)
+ (libraries alcotest botocaml)
+ (preprocess (pps ppx_deriving.show ppx_deriving.eq))
+)
