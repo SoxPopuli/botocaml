@@ -1,0 +1,24 @@
+name: Default
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "main"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: nixbuild/nix-quick-install-action@v27
+        with: { load_nixConfig: false }
+
+      - uses: nix-community/cache-nix-action@v5
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock', 'botocaml.opam') }}
+
+      - name: Build
+        run: nix develop -c dune build
+      - name: Run quick tests
+        run: ./_build/default/test/unit/unit_tests.exe -q
