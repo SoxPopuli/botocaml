@@ -23,7 +23,7 @@
 
           src = builtins.fetchGit {
             url = "https://github.com/c-cube/ezcurl.git";
-            ref = "v0.2.4";
+            ref = "refs/tags/v0.2.4";
             rev = "d259d85eb773794267b5314e517c0309bdbb6131";
           };
 

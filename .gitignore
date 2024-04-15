@@ -6,3 +6,4 @@ node_modules/
 
 # nix build dir
 result/
+result
