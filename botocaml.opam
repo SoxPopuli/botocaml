@@ -11,8 +11,21 @@ doc: "https://url/to/documentation"
 bug-reports: "https://github.com/username/reponame/issues"
 depends: [
   "ocaml" {>= "5.1.1"}
-  "dune" {>= "3.11" & >= "3.11"}
   "alcotest" {with-test}
+  "dune" {>= "3.11"}
+  "angstrom"
+  "cohttp"
+  "lwt"
+  "mirage-crypto"
+  "ocurl"
+  "timedesc"
+  "uri"
+  "yojson"
+  "ppx_deriving"
+  "ppx_yojson_conv"
+  "ppx_fields_conv"
+  "ezcurl"
+  "ezcurl-lwt"
   "odoc" {with-doc}
 ]
 build: [

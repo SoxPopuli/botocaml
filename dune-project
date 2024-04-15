@@ -21,8 +21,21 @@
  (description "A longer description")
  (depends 
    (ocaml (>= 5.1.1))
-   (dune (>= 3.11))
    (alcotest :with-test)
+   dune 
+   angstrom
+   cohttp
+   lwt
+   mirage-crypto
+   ocurl
+   timedesc
+   uri
+   yojson
+   ppx_deriving
+   ppx_yojson_conv
+   ppx_fields_conv
+   ezcurl
+   ezcurl-lwt
  )
  (tags
   (topics "to describe" your project)))
