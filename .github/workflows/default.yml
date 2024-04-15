@@ -16,4 +16,4 @@ jobs:
       - name: Build
         run: nix develop -c dune build
       - name: Run quick tests
-        run: ./_build/default/tests/unit/unit_tests.exe -q
+        run: ./_build/default/test/unit/unit_tests.exe -q
