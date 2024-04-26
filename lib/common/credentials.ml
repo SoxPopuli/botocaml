@@ -25,14 +25,7 @@ let merge ~src ~dst =
 ;;
 
 module Environment = struct
-  let rec getenv_with_fallback keys =
-    match keys with
-    | [] -> None
-    | hd :: tl ->
-      (match Sys.getenv_opt hd with
-       | Some x -> Some x
-       | None -> getenv_with_fallback tl)
-  ;;
+  let getenv_with_fallback = List.find_map Sys.getenv_opt
 
   let load () =
     let open Utils.OptionSyntax in
@@ -142,9 +135,7 @@ module File = struct
   let from_channel channel = channel |> In_channel.input_all |> from_string
 
   let from_path path =
-    try
-      path |> In_channel.open_text |> In_channel.input_all |> from_string
-    with
+    try path |> In_channel.open_text |> In_channel.input_all |> from_string with
     | Sys_error msg -> Error msg
   ;;
 end

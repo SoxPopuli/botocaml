@@ -87,6 +87,8 @@
               ocamlPackages.ppx_deriving
               ocamlPackages.ppx_yojson_conv
               ocamlPackages.ppx_fields_conv
+              ocamlPackages.ppx_variants_conv
+              ocamlPackages.ppx_string
 
               ezcurl
               ezcurl-lwt

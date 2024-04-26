@@ -13,43 +13,42 @@ module type Provider = sig
     -> ?region:Region.t
     -> func_name:string
     -> unit
-    -> (Ezcurl_core.response, Error.t) result Lwt.t
+    -> (string, Error.Aws.Invoke.t) result Lwt.t
 end
 
 module Make (C : Config) : Provider = struct
   let service = "lambda"
+  let function_prefix = "/2015-03-31/functions"
 
   let base_url ~region =
     match C.service_url with
     | Some url -> url
-    | None -> Format.sprintf "%s.%s.amazonaws.com" service region
+    | None -> [%string "%{service}.%{region}.amazonaws.com"]
   ;;
 
   let base_region =
     C.credentials
     |> Option.bind ~f:Credentials.region
     |> Option.bind_none ~f:(fun () ->
-      Sys.getenv_opt "AWS_REGION" |> Option.map Region.from_string)
-    |> Option.bind_none ~f:(fun () ->
-      Sys.getenv_opt "AWS_DEFAULT_REGION" |> Option.map Region.from_string)
-    |> Option.to_result ~none:(Error.RequestError "No region found")
+      [ "AWS_REGION"; "AWS_DEFAULT_REGION" ]
+      |> List.find_map Sys.getenv_opt
+      |> Option.map Region.from_string)
+    |> Option.to_result ~none:(`InvokeError "No region found")
   ;;
 
-  let credentials =
-    C.credentials |> Option.to_result ~none:(Error.RequestError "No credentials found")
+  let base_credentials =
+    C.credentials |> Option.to_result ~none:(`InvokeError "No credentials found")
   ;;
 
   let invoke ?payload ?region ~func_name () =
     let open LwtSyntax in
-    let$ creds = credentials in
+    let$ creds = base_credentials in
     let$ region =
       match region with
       | Some r -> Ok r
       | None -> base_region
     in
-    let path =
-      Format.sprintf "/2015-03-31/functions/%s/invocations" (Uri.pct_encode func_name)
-    in
+    let path = [%string "%{function_prefix}/%{Uri.pct_encode func_name}/invocations"] in
     let uri =
       Uri.make ~scheme:"https" ~host:(base_url ~region:(Region.show region)) ~path ()
     in
@@ -63,11 +62,21 @@ module Make (C : Config) : Provider = struct
               ~access_secret:creds.access_secret
               ~region
               ~service)
-      |> Option.to_result ~none:(Error.RequestError "failed to build request")
+      |> Option.to_result ~none:(`InvokeError "failed to build request")
     in
-    Format.printf "%a" Request.pp req;
     let& response = Request.perform req |> Lwt.map (Result.map_error Error.curlError) in
-    return (Ok response)
+    let result =
+      match response.code with
+      | 200 -> Ok response.body
+      | _ ->
+        response.body
+        |> Yojson.Safe.from_string
+        |> Error.Aws.Invoke.from_json
+        |> (function
+         | Some err -> Error err
+         | None -> Error (`InvokeError "Unexpected error"))
+    in
+    return result
   ;;
 end
 

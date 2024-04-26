@@ -362,9 +362,5 @@ let () =
   let open Alcotest in
   run
     "UnitTests"
-    [ AuthTests.suite
-    ; RequestTests.suite
-    ; UtilsTests.suite
-    ; ParserTests.suite
-    ]
+    [ AuthTests.suite; RequestTests.suite; UtilsTests.suite; ParserTests.suite ]
 ;;

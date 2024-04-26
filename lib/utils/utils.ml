@@ -166,3 +166,22 @@ let tee fn x =
   fn x;
   x
 ;;
+
+module Map = struct
+  include Map
+  module Make (M : Map.OrderedType) = struct
+    include Map.Make (M)
+
+    (** Loop through keys until key is found, or list is exausted *)
+    let find_with_fallback map ~keys =
+      let rec loop = function
+        | [] -> None
+        | head :: tail ->
+          (match find_opt head map with
+           | Some x -> Some x
+           | None -> loop tail)
+      in
+      loop keys
+    ;;
+  end
+end

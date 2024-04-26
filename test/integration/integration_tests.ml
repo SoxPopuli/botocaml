@@ -22,7 +22,7 @@ module LambdaTests = struct
     let func_name = getenv "FUNCTION_NAME" in
     let module Lambda = (val Lambda.from_credentials creds) in
     let response = Lambda.invoke ~func_name () |> Lwt_main.run |> Result.get_ok in
-    check' int ~msg:"" ~expected:200 ~actual:response.code
+    check' string ~msg:"" ~expected:"" ~actual:response
   ;;
 
   let suite = "Lambda", [ test_case "invoke" `Slow invoke_test ]
