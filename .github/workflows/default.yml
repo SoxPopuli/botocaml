@@ -8,7 +8,7 @@ on:
 
 jobs:
   build_and_test_ubuntu:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: nixbuild/nix-quick-install-action@v27
@@ -28,7 +28,7 @@ jobs:
         run: nix develop -c dune runtest test/integration
 
   build_and_test_macos:
-    runs-on: macos-latest
+    runs-on: macos-13
     steps:
       - uses: actions/checkout@v4
       - uses: nixbuild/nix-quick-install-action@v27
