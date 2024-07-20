@@ -113,6 +113,9 @@
               ocamlPackages.ocamlformat-rpc-lib
               ocamlPackages.utop
               ocamlPackages.alcotest
+
+              legacyPackages.docker
+              legacyPackages.docker-compose
             ];
 
             inputsFrom = [ self.packages.${system}.default ];

@@ -25,7 +25,7 @@ jobs:
         run: nix develop -c dune runtest test/unit
 
       - name: Start localstack
-        run: docker-compose up localstack
+        run: docker compose up -d --wait localstack
 
       - name: Run integration tests
         run: nix develop -c dune runtest test/integration
@@ -48,7 +48,7 @@ jobs:
         run: nix develop -c dune runtest test/unit
 
       - name: Start localstack
-        run: docker-compose up localstack
+        run: docker compose up -d --wait localstack
 
       - name: Run integration tests
         run: nix develop -c dune runtest test/integration
