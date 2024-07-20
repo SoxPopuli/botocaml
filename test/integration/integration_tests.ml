@@ -58,7 +58,12 @@ module LambdaTests = struct
   let invoke_not_found () =
     let func_name = "function_that_doesnt_exist" in
     let response = Lambda.invoke ~config:lambda_config ~func_name () |> Lwt_main.run in
-    let expected = "" |> Result.ok in
+    let expected =
+      `ResourceNotFound
+        "Function not found: \
+         arn:aws:lambda:us-east-1:000000000000:function:function_that_doesnt_exist"
+      |> Result.error
+    in
     check' (result string invoke_error) ~msg:"" ~expected ~actual:response
   ;;
 
