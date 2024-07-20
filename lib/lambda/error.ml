@@ -2,7 +2,8 @@ type curl_error =
   { code : int
   ; typ : string
   ; msg : string
-  } [@@deriving show, eq]
+  }
+[@@deriving show, eq]
 
 let string_of_curlCode (code : Curl.curlCode) = Curl.strerror code
 
@@ -178,9 +179,10 @@ module Aws = struct
     [@@deriving variants, show, eq]
 
     let from_json (x : Yojson.Safe.t) : t option =
-      let open Utils.OptionSyntax in
-      let* type_, message = get_type_and_message x in
-      match type_ with
+      let map = x |> Yojson.Safe.Util.to_assoc |> List.to_seq |> Hashtbl.of_seq in
+      let typ = Hashtbl.find map "__type" |> Yojson.Safe.Util.to_string in
+      let message = Hashtbl.find map "Message" |> Yojson.Safe.Util.to_string in
+      match typ with
       | "ServiceException" -> Some (`Service message)
       | "ResourceNotFoundException" -> Some (`ResourceNotFound message)
       | "InvalidRequestContentException" -> Some (`InvalidRequestContent message)

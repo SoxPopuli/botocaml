@@ -18,37 +18,59 @@ module LambdaTests = struct
     Credentials.make ~access_id ~access_secret ~region:(Region.from_string region) ()
   ;;
 
-  (** Invokes real aws lambda, gets parameters from env vars *)
-  let invoke_test () =
-    let invoke_error =
-      Alcotest.testable Lambda.Error.Aws.Invoke.pp Lambda.Error.Aws.Invoke.equal
-    in
-    let creds =
+  let invoke_error =
+    Alcotest.testable Lambda.Error.Aws.Invoke.pp Lambda.Error.Aws.Invoke.equal
+  ;;
+
+  let test_credentials = 
       load_credentials_data
         ~access_id:"000000000000"
         ~access_secret:""
         ~region:"us-east-1"
         ()
-    in
-    let func_name = "simple" in
-    let lambda_config =
+
+  let test_uri = 
+    Uri.make ~scheme:"http" ~host:"localhost" ~port:4566 ()
+
+  let lambda_config = 
       Lambda.Config.make
-        ~credentials:creds
-        ~service_url:(Uri.make ~scheme:"http" ~host:"localhost" ~port:4566 ())
+        ~credentials:test_credentials
+        ~service_url:test_uri
         ()
-    in
-    let response =
-      Lambda.invoke ~config:lambda_config ~func_name () |> Lwt_main.run
-    in
-    let response = response in
-    let expected = 
-      "{\"code\":200,\"message\":\"hello\"}"
+
+  let invoke () =
+    let func_name = "simple" in
+    let response = Lambda.invoke ~config:lambda_config ~func_name () |> Lwt_main.run in
+    let expected = "{\"code\":200,\"message\":\"hello\"}" |> Result.ok in
+    check' (result string invoke_error) ~msg:"" ~expected ~actual:response
+  ;;
+
+  let invoke_exception () =
+    let func_name = "exception" in
+    let response = Lambda.invoke ~config:lambda_config ~func_name () |> Lwt_main.run in
+    let expected =
+      "{\"errorType\":\"Error\",\"errorMessage\":\"error :(\",\"trace\":[\"Error: error \
+       :(\",\"    at Runtime.handler (/var/task/exception.js:2:9)\",\"    at \
+       Runtime.handleOnceNonStreaming (file:///var/runtime/index.mjs:1173:29)\"]}"
       |> Result.ok
     in
     check' (result string invoke_error) ~msg:"" ~expected ~actual:response
   ;;
 
-  let suite = "Lambda", [ test_case "invoke" `Slow invoke_test ]
+  let invoke_not_found () =
+    let func_name = "function_that_doesnt_exist" in
+    let response = Lambda.invoke ~config:lambda_config ~func_name () |> Lwt_main.run in
+    let expected = "" |> Result.ok
+    in
+    check' (result string invoke_error) ~msg:"" ~expected ~actual:response
+
+  let suite =
+    ( "Lambda"
+    , [ test_case "invoke" `Slow invoke
+      ; test_case "invoke_exception" `Slow invoke_exception
+      ; test_case "invoke_not_found" `Slow invoke_not_found
+      ] )
+  ;;
 end
 
 let () = run "IntegrationTests" [ LambdaTests.suite ]

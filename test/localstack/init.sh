@@ -18,6 +18,5 @@ create_lambda() {
         --role "arn:aws:iam::000000000000:role/service-role/${name}-role"
 }
 
-echo "poggers"
-
 create_lambda "/src/lambda/simple"
+create_lambda "/src/lambda/exception"
