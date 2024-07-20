@@ -169,6 +169,7 @@ let tee fn x =
 
 module Map = struct
   include Map
+
   module Make (M : Map.OrderedType) = struct
     include Map.Make (M)
 

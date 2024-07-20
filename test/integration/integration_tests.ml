@@ -18,9 +18,7 @@ module LambdaTests = struct
     Credentials.make ~access_id ~access_secret ~region:(Region.from_string region) ()
   ;;
 
-  let invoke_error =
-    Alcotest.testable Lambda.Error.Invoke.pp Lambda.Error.Invoke.equal
-  ;;
+  let invoke_error = Alcotest.testable Lambda.Error.Invoke.pp Lambda.Error.Invoke.equal
 
   let test_credentials =
     load_credentials_data
