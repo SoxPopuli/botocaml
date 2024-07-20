@@ -19,7 +19,7 @@ module LambdaTests = struct
   ;;
 
   let invoke_error =
-    Alcotest.testable Lambda.Error.Aws.Invoke.pp Lambda.Error.Aws.Invoke.equal
+    Alcotest.testable Lambda.Error.Invoke.pp Lambda.Error.Invoke.equal
   ;;
 
   let test_credentials =
@@ -62,6 +62,7 @@ module LambdaTests = struct
       `ResourceNotFound
         "Function not found: \
          arn:aws:lambda:us-east-1:000000000000:function:function_that_doesnt_exist"
+      |> Lambda.Error.Invoke.aws_error
       |> Result.error
     in
     check' (result string invoke_error) ~msg:"" ~expected ~actual:response

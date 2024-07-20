@@ -38,11 +38,12 @@ let service_url ?region ~func_name service_url =
 
 let invoke ?now ?payload ~(config : Config.t) ~func_name () =
   let open LwtSyntax in
+  let open Error.Invoke in
   let$ creds =
-    config.credentials |> Option.to_result ~none:(`InvokeError "no credentials provided")
+    config.credentials |> Option.to_result ~none:(InvokeError "no credentials provided")
   in
   let$ region =
-    Config.region config |> Option.to_result ~none:(`InvokeError "no region provided")
+    Config.region config |> Option.to_result ~none:(InvokeError "no region provided")
   in
   let uri = service_url ~region ~func_name config.service_url in
   let now =
@@ -57,9 +58,14 @@ let invoke ?now ?payload ~(config : Config.t) ~func_name () =
             ~access_secret:creds.access_secret
             ~region
             ~service)
-    |> Option.to_result ~none:(`InvokeError "failed to build request")
+    |> Option.to_result ~none:(InvokeError "failed to build request")
   in
-  let& response = Request.perform req |> Lwt.map (Result.map_error Error.curlError) in
+  let& response =
+    Request.perform req
+    |> Lwt.map
+         (Result.map_error (fun (code, body) ->
+            Error.RequestError.of_curl_error code body |> request_error))
+  in
   let result =
     match response.code with
     | 200 -> Ok response.body
@@ -67,10 +73,10 @@ let invoke ?now ?payload ~(config : Config.t) ~func_name () =
       response.body
       |> tee print_endline
       |> Yojson.Safe.from_string
-      |> Error.Aws.Invoke.from_json
+      |> Error.Invoke.from_json
       |> (function
        | Some err -> Error err
-       | None -> Error (`InvokeError "Unexpected error"))
+       | None -> Error (InvokeError "Unexpected error"))
   in
   return result
 ;;
