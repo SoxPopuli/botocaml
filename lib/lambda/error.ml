@@ -2,7 +2,7 @@ type curl_error =
   { code : int
   ; typ : string
   ; msg : string
-  }
+  } [@@deriving show, eq]
 
 let string_of_curlCode (code : Curl.curlCode) = Curl.strerror code
 
@@ -175,7 +175,7 @@ module Aws = struct
       | `InvokeError of string
       | `CurlError of curl_error
       ]
-    [@@deriving variants]
+    [@@deriving variants, show, eq]
 
     let from_json (x : Yojson.Safe.t) : t option =
       let open Utils.OptionSyntax in

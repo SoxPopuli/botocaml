@@ -9,7 +9,8 @@ end
 
 module type Provider = sig
   val invoke
-    :  ?payload:string
+    :  ?now:Timedesc.t
+    -> ?payload:string
     -> ?region:Region.t
     -> func_name:string
     -> unit
@@ -40,7 +41,7 @@ module Make (C : Config) : Provider = struct
     C.credentials |> Option.to_result ~none:(`InvokeError "No credentials found")
   ;;
 
-  let invoke ?payload ?region ~func_name () =
+  let invoke ?now ?payload ?region ~func_name () =
     let open LwtSyntax in
     let$ creds = base_credentials in
     let$ region =
@@ -52,7 +53,10 @@ module Make (C : Config) : Provider = struct
     let uri =
       Uri.make ~scheme:"https" ~host:(base_url ~region:(Region.show region)) ~path ()
     in
-    let now = Timedesc.now ~tz_of_date_time:Timedesc.Time_zone.utc () in
+    let now =
+      now
+      |> Option.value ~default:(Timedesc.now ~tz_of_date_time:Timedesc.Time_zone.utc ())
+    in
     let$ req =
       Request.post_json ~datetime:now ~uri ?body:payload ()
       |> Option.map
@@ -70,6 +74,7 @@ module Make (C : Config) : Provider = struct
       | 200 -> Ok response.body
       | _ ->
         response.body
+        |> (tee print_endline)
         |> Yojson.Safe.from_string
         |> Error.Aws.Invoke.from_json
         |> (function
