@@ -9,14 +9,18 @@ type t =
 [@@deriving fields ~getters, make, show, eq]
 
 let default = { access_id = ""; access_secret = ""; region = None; role_arn = None }
+let merge_string a b = if String.length b = 0 then a else b
+
+let merge_option a b =
+  match a, b with
+  | _, Some _ -> b
+  | Some _, None -> a
+  | None, None -> None
+;;
 
 (** Merge two records together.
     Prefers values in dst over src *)
 let merge ~src ~dst =
-  let merge_string a b = if String.length b = 0 then a else b in
-  let merge_option a b =
-    if Option.is_some b then b else if Option.is_some a then a else None
-  in
   { access_id = merge_string src.access_id dst.access_id
   ; access_secret = merge_string src.access_secret dst.access_secret
   ; region = merge_option src.region dst.region
@@ -29,8 +33,10 @@ module Environment = struct
 
   let load () =
     let open Utils.OptionSyntax in
-    let* access_id = Sys.getenv_opt "AWS_ACCESS_KEY_ID" in
-    let* access_secret = Sys.getenv_opt "AWS_SECRET_ACCESS_KEY" in
+    let access_id = Sys.getenv_opt "AWS_ACCESS_KEY_ID" |> Option.value ~default:"" in
+    let access_secret =
+      Sys.getenv_opt "AWS_SECRET_ACCESS_KEY" |> Option.value ~default:""
+    in
     let region =
       getenv_with_fallback [ "AWS_REGION"; "AWS_DEFAULT_REGION" ]
       |> Option.map Region.from_string
@@ -161,6 +167,11 @@ let try_load ?(profile = "default") () =
     let* home = Sys.getenv_opt "HOME" in
     try_from_path (Format.sprintf "%s/.aws/credentials" home)
   in
-  let options = [ Environment.load; try_load_credentials_file ] in
-  ListLabels.find_map options ~f:(fun fn -> fn ())
+  let from_environment = Environment.load () in
+  let from_file = try_load_credentials_file () in
+  match from_environment, from_file with
+  | Some env, Some file -> merge ~src:file ~dst:env |> Option.some
+  | Some env, None -> Some env
+  | None, Some file -> Some file
+  | None, None -> None
 ;;
