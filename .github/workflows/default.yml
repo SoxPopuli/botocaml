@@ -7,10 +7,10 @@ on:
       - "main"
 
 jobs:
-  build:
+  build_and_test_ubuntu:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: nixbuild/nix-quick-install-action@v27
         with: { load_nixConfig: false }
 
@@ -20,5 +20,29 @@ jobs:
 
       - name: Build
         run: nix develop -c dune build
+
       - name: Run unit tests
         run: nix develop -c dune runtest test/unit
+
+      - name: Run integration tests
+        run: nix develop -c dune runtest test/integration
+
+  build_and_test_macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: nixbuild/nix-quick-install-action@v27
+        with: { load_nixConfig: false }
+
+      - uses: nix-community/cache-nix-action@v5
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('flake.nix', 'flake.lock', 'botocaml.opam') }}
+
+      - name: Build
+        run: nix develop -c dune build
+
+      - name: Run unit tests
+        run: nix develop -c dune runtest test/unit
+
+      - name: Run integration tests
+        run: nix develop -c dune runtest test/integration

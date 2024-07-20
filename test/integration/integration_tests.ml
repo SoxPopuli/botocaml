@@ -22,21 +22,19 @@ module LambdaTests = struct
     Alcotest.testable Lambda.Error.Aws.Invoke.pp Lambda.Error.Aws.Invoke.equal
   ;;
 
-  let test_credentials = 
-      load_credentials_data
-        ~access_id:"000000000000"
-        ~access_secret:""
-        ~region:"us-east-1"
-        ()
+  let test_credentials =
+    load_credentials_data
+      ~access_id:"000000000000"
+      ~access_secret:""
+      ~region:"us-east-1"
+      ()
+  ;;
 
-  let test_uri = 
-    Uri.make ~scheme:"http" ~host:"localhost" ~port:4566 ()
+  let test_uri = Uri.make ~scheme:"http" ~host:"localhost" ~port:4566 ()
 
-  let lambda_config = 
-      Lambda.Config.make
-        ~credentials:test_credentials
-        ~service_url:test_uri
-        ()
+  let lambda_config =
+    Lambda.Config.make ~credentials:test_credentials ~service_url:test_uri ()
+  ;;
 
   let invoke () =
     let func_name = "simple" in
@@ -60,9 +58,9 @@ module LambdaTests = struct
   let invoke_not_found () =
     let func_name = "function_that_doesnt_exist" in
     let response = Lambda.invoke ~config:lambda_config ~func_name () |> Lwt_main.run in
-    let expected = "" |> Result.ok
-    in
+    let expected = "" |> Result.ok in
     check' (result string invoke_error) ~msg:"" ~expected ~actual:response
+  ;;
 
   let suite =
     ( "Lambda"
